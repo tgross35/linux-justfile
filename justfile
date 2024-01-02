@@ -143,13 +143,29 @@ build-initramfs: build setup-initramfs get-busybox
 		"{{stash_dir}}/qemu-initramfs.img"
 
 # Run the built kernel in qemu
-run-qemu with-gdb='no': build-initramfs
+run-qemu *OPTIONS="": build-initramfs
 	#!/bin/sh
 	set -eau
 
-	if [ "{with-gdb}" = "yes" ] || [ "{with-gdb}" = "1" ] || [ "{with-gdb}" = "true" ]; then
-		extra_args="-s -S"
-	fi
+	help='Usage:
+	just run-qemu [OPTIONS]
+
+	OPTIONS:
+	  --debug: run qemu with -s -S to allow attaching a debugger
+	'
+
+	for arg in {{OPTIONS}}; do
+		echo $arg
+		case "$arg" in
+			--gdb)
+				extra_args="-s -S"
+				;;
+			*)
+				echo "$help"
+				exit
+				;;
+		esac
+	done
 
 	{{qemu}} \
 		-kernel "{{source_dir}}/arch/x86/boot/bzImage" \
@@ -163,4 +179,7 @@ run-qemu with-gdb='no': build-initramfs
 		-no-reboot \
 		-append 'console=ttyS0 nokaslr' \
 		${extra_args:-}
-		
+
+# Attach GDB to qemu (`just run-qemu --debug` must already be running)
+debug *DEBUGGER_ARGS:
+	gdb "{{source_dir}}/vmlinux" -ex 'target remote localhost:1234' {{DEBUGGER_ARGS}}
