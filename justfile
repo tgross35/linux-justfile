@@ -29,27 +29,35 @@ rustavailable:
 	make -C "{{source_dir}}" {{default_make_args}} rustavailable
 
 # Configure rust-analyzer
-rust-analyzer:
-	make -C "{{source_dir}}" {{default_make_args}} rust-analyzer
+rust-analyzer *extra_args:
+	make -C "{{source_dir}}" {{default_make_args}} rust-analyzer {{extra_args}}
 
 # Shortcut for `make menuconfig`
-menuconfig: rustavailable
-	make -C "{{source_dir}}" {{default_make_args}} menuconfig
+menuconfig *extra_args: rustavailable
+	make -C "{{source_dir}}" {{default_make_args}} menuconfig {{extra_args}}
+
+# Shortcut for `make defaultconfig`
+defaultconfig *extra_args: rustavailable
+	make -C "{{source_dir}}" {{default_make_args}} defaultconfig {{extra_args}}
 
 # Run the build
-build: rustavailable
-	make -C "{{source_dir}}" {{default_make_args}} "-j$(nproc)"
+build *extra_args: rustavailable
+	make -C "{{source_dir}}" {{default_make_args}} "-j$(nproc)" {{extra_args}}
 
 # Run the build with clippy
-clippy: rustavailable
-	make -C "{{source_dir}}" {{default_make_args}} CLIPPY=y "-j$(nproc)"
+clippy *extra_args: rustavailable
+	make -C "{{source_dir}}" {{default_make_args}} CLIPPY=y "-j$(nproc)" {{extra_args}}
 
-# Clean the git directory, only removing excluded files
+# Just run make from the correct directory
+make *args:
+	make -C "{{source_dir}}"
+
+# Clean the git directory, only removing excluded files (ignores .config)
 clean:
 	git -C "{{source_dir}}" clean -dfX \
-	    --exclude linux \
-	    --exclude .config \
-	    --exclude rust-project.json
+	    --exclude "{{source_dir}}/linux" \
+	    --exclude "{{source_dir}}/.config" \
+	    --exclude "{{source_dir}}/rust-project.json"
 
 # Run rustfmt
 fmt:
@@ -64,7 +72,7 @@ rustup-override:
 
 # Make the linux directory where we store 
 _stash_dir:
-	mkdir -p "{{source_dir}}/linux"
+	mkdir -p "{{stash_dir}}"
 
 # Download busybox
 get-busybox: _stash_dir
@@ -78,7 +86,7 @@ get-busybox: _stash_dir
 		echo busybox found, skipping
 	fi
 
-# Setup files needed to create initramfs
+# Setup files needed to create initramfs. Locates all Rust loadable modules.
 setup-initramfs: build _stash_dir
 	#!/bin/sh
 	set -eaux
